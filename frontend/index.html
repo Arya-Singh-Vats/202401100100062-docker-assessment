@@ -1,0 +1,118 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FestPass 2026</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      max-width: 640px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      color: #20243a;
+    }
+    #status {
+      padding: 0.8rem;
+      background: #eef2ff;
+      border-radius: 8px;
+      overflow-wrap: anywhere;
+    }
+    input, select, button {
+      padding: 0.7rem;
+      margin: 0.3rem 0;
+      font: inherit;
+    }
+    button {
+      cursor: pointer;
+    }
+    li {
+      margin: 0.5rem 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>FestPass 2026 registrations</h1>
+  <p id="status">Checking the backend…</p>
+
+  <form id="form">
+    <input id="name" placeholder="Your name" required>
+    <select id="event">
+      <option>Hackathon</option>
+      <option>Robo Race</option>
+      <option>Tech Quiz</option>
+    </select>
+    <button type="submit">Register</button>
+  </form>
+
+  <p id="message" role="status"></p>
+  <h2>Registered participants</h2>
+  <ul id="list"></ul>
+
+  <script>
+    const api = async (path, options = {}) => {
+      const response = await fetch("/api/" + path, options);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Request failed");
+      }
+
+      return data;
+    };
+
+    async function refresh() {
+      const status = document.getElementById("status");
+      const list = document.getElementById("list");
+
+      try {
+        const health = await api("health");
+
+        status.textContent =
+          `REGNO ${health.regno} | backend ${health.version} on ${health.container} | database ${health.database ? "connected" : "not connected"}`;
+
+        const rows = await api("registrations");
+
+        list.replaceChildren(
+          ...rows.map(row => {
+            const item = document.createElement("li");
+            item.textContent =
+              `#${row.id} ${row.name} (${row.event})`;
+            return item;
+          })
+        );
+      } catch (error) {
+        status.textContent = "Backend not reachable: " + error.message;
+      }
+    }
+
+    document.getElementById("form").addEventListener("submit", async event => {
+      event.preventDefault();
+
+      const message = document.getElementById("message");
+      const name = document.getElementById("name").value.trim();
+      const selectedEvent = document.getElementById("event").value;
+
+      try {
+        await api("registrations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            event: selectedEvent
+          })
+        });
+
+        document.getElementById("name").value = "";
+        message.textContent = "Registration successful!";
+        await refresh();
+      } catch (error) {
+        message.textContent = "Registration failed: " + error.message;
+      }
+    });
+
+    refresh();
+  </script>
+</body>
+</html>
